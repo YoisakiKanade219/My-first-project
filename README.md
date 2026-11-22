@@ -30,7 +30,7 @@ On the first run it will:
 2. ask whether to set up email and/or WhatsApp, and save your details in `.env` on your computer,
 3. download the Qwen 3.5 9B model (about 6.6 GB, one time only).
 
-Run `./run.sh --setup` any time to change your accounts.
+Run `./run.sh --setup` any time to change your accounts, and `./run.sh --check` to test them without sending anything.
 
 ## Usage
 

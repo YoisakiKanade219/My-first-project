@@ -8,6 +8,7 @@ Usage:
     python -m messenger_agent.agent --auto "..."          # send without asking (for scripts / cron)
     python -m messenger_agent.agent --dry-run "..."       # do everything except actually send
     python -m messenger_agent.agent --setup               # set up email / WhatsApp accounts
+    python -m messenger_agent.agent --check               # test those accounts without sending
 """
 
 from __future__ import annotations
@@ -181,6 +182,8 @@ def main() -> int:
     parser.add_argument("--auto", action="store_true", help="Send without asking for confirmation.")
     parser.add_argument("--dry-run", action="store_true", help="Write messages but don't send anything.")
     parser.add_argument("--setup", action="store_true", help="Set up or change your email / WhatsApp accounts.")
+    parser.add_argument("--check", action="store_true",
+                        help="Test your email and WhatsApp settings without sending anything.")
     parser.add_argument("--model", default=os.environ.get("OLLAMA_MODEL", DEFAULT_MODEL),
                         help=f"Ollama model to use (default: {DEFAULT_MODEL}).")
     parser.add_argument("--think", action="store_true",
@@ -191,6 +194,16 @@ def main() -> int:
 
     if args.setup or (not Path(".env").exists() and sys.stdin.isatty()):
         setup_wizard.run(force=args.setup)
+
+    if args.check:
+        ok = True
+        for name, check in (("Email", channels.check_email), ("WhatsApp", channels.check_whatsapp)):
+            try:
+                print(check())
+            except channels.ChannelError as exc:
+                ok = False
+                print(f"{name} problem: {exc}")
+        return 0 if ok else 1
 
     client = ollama.Client(host=os.environ.get("OLLAMA_HOST", "http://localhost:11434"))
     if not ensure_model(client, args.model):

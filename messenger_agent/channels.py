@@ -112,6 +112,45 @@ def send_whatsapp(to: str, message: str, dry_run: bool = False) -> str:
     return f"WhatsApp message sent to {to} (id: {msg_id})."
 
 
+def check_whatsapp() -> str:
+    """Confirm the WhatsApp token and phone number ID work, without sending anything."""
+    cfg = _require_env("WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID")
+    version = os.environ.get("WHATSAPP_API_VERSION", "v25.0")
+    try:
+        resp = httpx.get(
+            f"https://graph.facebook.com/{version}/{cfg['WHATSAPP_PHONE_NUMBER_ID']}",
+            params={"fields": "display_phone_number,verified_name,quality_rating"},
+            headers={"Authorization": f"Bearer {cfg['WHATSAPP_TOKEN']}"},
+            timeout=30,
+        )
+        data = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise ChannelError(f"Could not reach Meta: {exc}") from exc
+    if resp.status_code >= 400 or "error" in data:
+        err = data.get("error", {})
+        raise ChannelError(_META_ERRORS.get(err.get("code")) or err.get("message") or f"HTTP {resp.status_code}")
+    return (f"WhatsApp OK: sending as {data.get('verified_name', '?')} "
+            f"({data.get('display_phone_number', '?')}), quality rating {data.get('quality_rating', 'n/a')}.")
+
+
+def check_email() -> str:
+    """Log in to the mail server without sending anything."""
+    cfg = _require_env("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD")
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    context = ssl.create_default_context()
+    try:
+        if port == 465:
+            with smtplib.SMTP_SSL(cfg["SMTP_HOST"], port, context=context, timeout=30) as smtp:
+                smtp.login(cfg["SMTP_USERNAME"], cfg["SMTP_PASSWORD"])
+        else:
+            with smtplib.SMTP(cfg["SMTP_HOST"], port, timeout=30) as smtp:
+                smtp.starttls(context=context)
+                smtp.login(cfg["SMTP_USERNAME"], cfg["SMTP_PASSWORD"])
+    except (smtplib.SMTPException, OSError) as exc:
+        raise ChannelError(f"Email login failed: {exc}") from exc
+    return f"Email OK: logged in as {cfg['SMTP_USERNAME']}."
+
+
 def load_contacts(path: str | os.PathLike[str] | None = None) -> list[dict]:
     path = Path(path or os.environ.get("CONTACTS_FILE", "contacts.json"))
     if not path.exists():
