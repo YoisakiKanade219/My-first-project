@@ -1,4 +1,4 @@
-"""Delivery channels: email over SMTP and WhatsApp over Twilio.
+"""Delivery channels: email over SMTP and WhatsApp over Meta's official Cloud API.
 
 Credentials come from environment variables (see .env.example), so they stay on
 your machine and are never sent to the model.
@@ -13,6 +13,8 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from pathlib import Path
+
+import httpx
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 PHONE_RE = re.compile(r"^\+[1-9]\d{6,14}$")  # E.164, e.g. +14155550123
@@ -61,26 +63,53 @@ def send_email(to: str, subject: str, body: str, dry_run: bool = False) -> str:
     return f"Email sent to {to}."
 
 
+# Meta error codes worth explaining in plain words.
+_META_ERRORS = {
+    131047: "More than 24 hours have passed since this person last messaged your WhatsApp business number, "
+            "so WhatsApp only allows paid template messages. Ask them to send you any message first, then try again.",
+    131030: "This number isn't on your test number's allowed list. Add it under WhatsApp > API Setup > "
+            "'To' in the Meta developer dashboard (test numbers can message up to 5 people).",
+    131026: "WhatsApp couldn't deliver to this number. Check that it's correct and has WhatsApp.",
+    190: "Your WhatsApp access token is invalid or has expired. Create a new one and run --setup.",
+}
+
+
 def send_whatsapp(to: str, message: str, dry_run: bool = False) -> str:
+    """Send a text message with Meta's official WhatsApp Cloud API.
+
+    Free-form text only reaches people who messaged your business number in the last 24 hours.
+    """
     if not PHONE_RE.match(to):
         raise ChannelError(f"'{to}' is not a phone number in international format (e.g. +14155550123).")
-    cfg = _require_env("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_WHATSAPP_FROM")
+    cfg = _require_env("WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID")
 
     if dry_run:
         return f"[dry run] WhatsApp message to {to} was not sent."
 
-    from twilio.base.exceptions import TwilioException
-    from twilio.rest import Client
-
-    sender = cfg["TWILIO_WHATSAPP_FROM"]
-    if not sender.startswith("whatsapp:"):
-        sender = f"whatsapp:{sender}"
+    version = os.environ.get("WHATSAPP_API_VERSION", "v25.0")
+    url = f"https://graph.facebook.com/{version}/{cfg['WHATSAPP_PHONE_NUMBER_ID']}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to.lstrip("+"),
+        "type": "text",
+        "text": {"body": message},
+    }
     try:
-        client = Client(cfg["TWILIO_ACCOUNT_SID"], cfg["TWILIO_AUTH_TOKEN"])
-        result = client.messages.create(from_=sender, to=f"whatsapp:{to}", body=message)
-    except TwilioException as exc:
-        raise ChannelError(f"WhatsApp message to {to} failed: {exc}") from exc
-    return f"WhatsApp message sent to {to} (status: {result.status}, id: {result.sid})."
+        resp = httpx.post(url, json=payload, headers={"Authorization": f"Bearer {cfg['WHATSAPP_TOKEN']}"}, timeout=30)
+    except httpx.HTTPError as exc:
+        raise ChannelError(f"WhatsApp message to {to} failed: could not reach Meta ({exc}).") from exc
+
+    try:
+        data = resp.json()
+    except ValueError:
+        data = {}
+    if resp.status_code >= 400 or "error" in data:
+        err = data.get("error", {})
+        code = err.get("code")
+        detail = _META_ERRORS.get(code) or err.get("message") or f"HTTP {resp.status_code}"
+        raise ChannelError(f"WhatsApp message to {to} failed: {detail}")
+    msg_id = (data.get("messages") or [{}])[0].get("id", "?")
+    return f"WhatsApp message sent to {to} (id: {msg_id})."
 
 
 def load_contacts(path: str | os.PathLike[str] | None = None) -> list[dict]:

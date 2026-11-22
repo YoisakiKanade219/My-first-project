@@ -59,9 +59,18 @@ Your computer and Ollama must be on at that time.
 
 - **Email (free):** works with any email account. For Gmail, turn on 2-Step Verification, create an
   [App Password](https://myaccount.google.com/apppasswords), and enter it during setup.
-- **WhatsApp (Twilio):** create a [Twilio](https://www.twilio.com) account and open the WhatsApp Sandbox
-  (Messaging → Try it out → Send a WhatsApp message). Each recipient must first send the sandbox join code to the sandbox number.
-  Testing uses Twilio's trial credit. Messaging real contacts requires your own WhatsApp sender, and **Twilio and Meta charge per message**.
+- **WhatsApp (Meta's official Cloud API, free):**
+  1. Go to https://developers.facebook.com, create an app of type **Business**, and add the **WhatsApp** product.
+  2. Under **WhatsApp → API Setup** you get a free **test number**. Copy its **Phone number ID** and the **access token**, and enter them in `./run.sh --setup`.
+  3. Test numbers can only message up to **5 people**, whom you add in the **To** list on that page.
+  4. The temporary token expires after 24 hours. For a permanent one, open Meta **Business Settings → System users**,
+     create a system user, give it your app, and generate a token with the `whatsapp_business_messaging` permission.
+  5. To message anyone (not just 5 people), add your own phone number under **API Setup**. That number then can't be used in the regular WhatsApp app.
+
+  **The 24-hour rule:** WhatsApp only lets businesses send free-form messages to someone who messaged
+  **your WhatsApp business number** in the last 24 hours, and those replies are free. Outside that window WhatsApp
+  only allows pre-approved *template* messages, which Meta charges for. This agent sends free-form messages only; if the
+  window is closed it tells you to ask the person to message you first.
 - **Contacts:** edit `contacts.json` (created on first run). Phone numbers need `+` and the country code.
 
 ## Costs
@@ -70,7 +79,7 @@ Your computer and Ollama must be on at that time.
 |---|---|
 | AI model (Qwen 3.5 9B on Ollama) | Free; runs on your own hardware |
 | Email | Free with your normal email account |
-| WhatsApp via Twilio | Free trial credit for testing; paid per message for real use |
+| WhatsApp (Meta Cloud API) | Free for messages to people who messaged you in the last 24 hours |
 
 ## Tips
 
@@ -83,7 +92,7 @@ Your computer and Ollama must be on at that time.
 ```
 messenger_agent/
   agent.py         # the agent: model + tools + chat loop
-  channels.py      # SMTP email and Twilio WhatsApp delivery
+  channels.py      # SMTP email and WhatsApp (Meta Cloud API) delivery
   setup_wizard.py  # first-run questions, saved to .env
 run.sh / run.bat   # one-command launchers
 .env.example       # configuration template

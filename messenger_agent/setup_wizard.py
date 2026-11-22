@@ -51,14 +51,14 @@ def run(force: bool = False) -> None:
                 "SMTP_PASSWORD": _ask("   Password / App Password", secret=True),
             })
 
-    if force or not os.environ.get("TWILIO_ACCOUNT_SID"):
-        if _yes("\n2) Set up WHATSAPP sending now (needs a free Twilio account)?"):
-            print("   In the Twilio Console, copy your Account SID and Auth Token, and open")
-            print("   Messaging > Try it out > Send a WhatsApp message to get the sandbox number.")
+    if force or not os.environ.get("WHATSAPP_TOKEN"):
+        if _yes("\n2) Set up WHATSAPP sending now (free Meta developer account)?"):
+            print("   At https://developers.facebook.com create an app of type 'Business' and add WhatsApp.")
+            print("   Open WhatsApp > API Setup: copy the access token and the 'Phone number ID'.")
+            print("   (The temporary token lasts 24 hours; see the README for a permanent one.)")
             _save({
-                "TWILIO_ACCOUNT_SID": _ask("   Account SID"),
-                "TWILIO_AUTH_TOKEN": _ask("   Auth Token", secret=True),
-                "TWILIO_WHATSAPP_FROM": _ask("   WhatsApp sender number", "whatsapp:+14155238886"),
+                "WHATSAPP_TOKEN": _ask("   Access token", secret=True),
+                "WHATSAPP_PHONE_NUMBER_ID": _ask("   Phone number ID"),
             })
 
     if not Path("contacts.json").exists() and Path("contacts.example.json").exists():
