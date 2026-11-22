@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 
@@ -18,7 +19,7 @@ import anthropic
 from anthropic import beta_tool
 from dotenv import load_dotenv
 
-from . import channels
+from . import channels, setup_wizard
 
 MODEL = "claude-opus-5-5"
 
@@ -145,9 +146,16 @@ def main() -> int:
     parser.add_argument("instruction", nargs="*", help="What to send. Omit for interactive mode.")
     parser.add_argument("--auto", action="store_true", help="Send without asking for confirmation.")
     parser.add_argument("--dry-run", action="store_true", help="Write messages but don't send anything.")
+    parser.add_argument("--setup", action="store_true", help="Enter or change your API keys and accounts.")
     args = parser.parse_args()
     Settings.auto_send = args.auto
     Settings.dry_run = args.dry_run
+
+    if args.setup or (not os.environ.get("ANTHROPIC_API_KEY") and sys.stdin.isatty()):
+        setup_wizard.run(force=args.setup)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("No ANTHROPIC_API_KEY set. Run again with --setup to add it.", file=sys.stderr)
+        return 1
 
     client = anthropic.Anthropic()
     history: list = []

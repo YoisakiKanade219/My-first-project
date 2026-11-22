@@ -20,9 +20,25 @@ The agent looks people up in your contact list, writes each message, shows it to
   Your passwords and tokens stay on your machine and are never sent to Claude.
 - If Claude's safety filter declines a request, the request is retried on a fallback model automatically (`fallbacks: "default"`).
 
-## Setup
+## Quick start
 
-1. **Install** (Python 3.10+):
+You need [Python 3.10 or newer](https://www.python.org/downloads/). On Windows, tick **"Add python.exe to PATH"** when installing.
+
+```bash
+git clone https://github.com/YoisakiKanade219/My-first-project.git
+cd My-first-project
+./run.sh          # macOS / Linux
+run.bat           # Windows (or double-click it)
+```
+
+The first run installs everything into a private `.venv` folder, then asks for your keys and saves them in `.env` on your computer.
+To change them later, run `./run.sh --setup`. Every example below works with `./run.sh` (or `run.bat`) in place of `python -m messenger_agent.agent`.
+
+## Manual setup (optional)
+
+If you'd rather not use the launcher:
+
+1. **Install:**
    ```bash
    python -m venv .venv && source .venv/bin/activate
    pip install -r requirements.txt
