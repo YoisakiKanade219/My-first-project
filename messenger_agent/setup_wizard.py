@@ -35,13 +35,11 @@ def _save(values: dict[str, str]) -> None:
 def run(force: bool = False) -> None:
     """Ask for any missing settings. With force=True, ask for everything again."""
     print("\n=== Messenger Agent setup ===  (press Enter to skip a question)\n")
-
-    if force or not os.environ.get("ANTHROPIC_API_KEY"):
-        print("1) Claude API key: create one at https://platform.claude.com (Settings > API keys).")
-        _save({"ANTHROPIC_API_KEY": _ask("   Anthropic API key", secret=True)})
+    ENV_PATH.touch(exist_ok=True)  # so setup only runs automatically the first time
+    os.chmod(ENV_PATH, 0o600)
 
     if force or not os.environ.get("SMTP_USERNAME"):
-        if _yes("\n2) Set up EMAIL sending now?"):
+        if _yes("1) Set up EMAIL sending now?"):
             print("   Gmail: turn on 2-Step Verification, then create an App Password at")
             print("   https://myaccount.google.com/apppasswords and paste it below.")
             user = _ask("   Your email address")
@@ -54,7 +52,7 @@ def run(force: bool = False) -> None:
             })
 
     if force or not os.environ.get("TWILIO_ACCOUNT_SID"):
-        if _yes("\n3) Set up WHATSAPP sending now (needs a free Twilio account)?"):
+        if _yes("\n2) Set up WHATSAPP sending now (needs a free Twilio account)?"):
             print("   In the Twilio Console, copy your Account SID and Auth Token, and open")
             print("   Messaging > Try it out > Send a WhatsApp message to get the sandbox number.")
             _save({
